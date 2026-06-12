@@ -78,11 +78,11 @@ def _elapsed(since: float) -> str:
 # -- banner -------------------------------------------------------------------
 
 _CROSSHAIR = [
-    "  ██  ",
-    "  ██  ",
-    "██████",
-    "  ██  ",
-    "  ██  ",
+    "    ██    ",
+    "    ██    ",
+    "██████████",
+    "    ██    ",
+    "    ██    ",
 ]
 
 _WORDMARK = [
@@ -103,8 +103,8 @@ def banner(stream=None, tagline: str = "") -> str:
         for c, w in zip(_CROSSHAIR, _WORDMARK)
     ]
     width = 2 + len(_CROSSHAIR[0]) + 2 + len(_WORDMARK[0]) + 2
-    top = dim("▛" + " " * width + "▜", stream=stream)
-    bottom = dim("▙" + " " * width + "▟", stream=stream)
+    top = dim("▛▀▀" + " " * (width - 4) + "▀▀▜", stream=stream)
+    bottom = dim("▙▄▄" + " " * (width - 4) + "▄▄▟", stream=stream)
     out = [top] + [" " + r for r in rows] + [bottom]
     if tagline:
         out.append(" " + dim(tagline, stream=stream))
