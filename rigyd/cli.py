@@ -242,7 +242,17 @@ def cmd_simulate(args) -> int:
 
 # -- parser -----------------------------------------------------------------
 
-class _BrandParser(argparse.ArgumentParser):
+class _HelpfulParser(argparse.ArgumentParser):
+    """On usage errors (missing args/subcommand), show the command's full help
+    instead of a terse usage line."""
+
+    def error(self, message: str) -> "NoReturn":  # noqa: F821
+        sys.stderr.write(tui.err_line(message) + "\n\n")
+        self.print_help(sys.stderr)
+        raise SystemExit(2)
+
+
+class _BrandParser(_HelpfulParser):
     """Top-level parser whose help page opens with the Rigyd banner."""
 
     def format_help(self) -> str:
@@ -270,9 +280,10 @@ def build_parser() -> argparse.ArgumentParser:
         description="Convert 3D models, text, or images into SimReady simulation assets.",
     )
     parser.add_argument("--version", action="version", version=f"rigyd {__version__}")
-    # Subcommand help pages stay banner-free (parser_class would inherit ours).
+    # Subcommands: help-on-error, but banner-free (parser_class would inherit
+    # _BrandParser otherwise).
     sub = parser.add_subparsers(dest="command", required=True,
-                                parser_class=argparse.ArgumentParser)
+                                parser_class=_HelpfulParser)
 
     p = sub.add_parser("login", help="store your API key (validates it first)")
     _add_common(p, json_flag=False)
