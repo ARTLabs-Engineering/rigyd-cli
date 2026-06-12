@@ -18,7 +18,7 @@ rigyd = "rigyd.cli:main"
 [project.urls]
 Homepage = "https://rigyd.com"
 Documentation = "https://docs.rigyd.com"
-Repository = "https://github.com/ARTLabs-Engineering/rigyd-python"
+Repository = "https://github.com/ARTLabs-Engineering/rigyd-cli"
 
 [build-system]
 requires = ["setuptools>=68"]

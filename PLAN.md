@@ -1,6 +1,6 @@
 # Track C — `rigyd` unified SDK + CLI
 
-> Status: executing. New repo (`rigyd-python/`, dist name **`rigyd`** — PyPI name verified free 2026-06-08).
+> Status: executing. New repo (`rigyd-cli/`, dist name **`rigyd`** — PyPI name verified free 2026-06-08).
 > Supersedes `rigyd-mujoco` (no backward compat needed — no users yet; that repo/package will be deleted later).
 
 ## Goal

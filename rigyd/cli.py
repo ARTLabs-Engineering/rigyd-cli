@@ -16,10 +16,9 @@ import getpass
 import json
 import os
 import sys
-import tempfile
 from typing import Optional
 
-from . import config
+from . import config, tui
 from ._version import __version__
 from .client import RigydClient
 from .errors import RigydError
@@ -36,8 +35,10 @@ def _err(msg: str) -> None:
     print(msg, file=sys.stderr)
 
 
-def _progress(job: Job) -> None:
-    _err(f"  {job.status} - {job.stage or '...'} - {job.progress}%")
+def _watch(status: "tui.StatusLine", job: Job) -> None:
+    """Poll a job to completion, feeding the animated status line."""
+    job.wait(on_progress=lambda j: status.update(
+        j.stage or j.status or "...", (j.progress or 0) / 100.0))
 
 
 def _client(args) -> RigydClient:
@@ -62,7 +63,13 @@ def _download(job: Job, fmt: str, output_base: str, as_json: bool) -> int:
     # Extract into a per-job subdir: Job.download clears its dest dir first, so
     # never hand it a user directory like "." directly.
     dest = os.path.join(os.path.abspath(output_base), job.id)
-    main_path = job.download(fmt=fmt, dest=dest)
+    status = tui.StatusLine().start(f"downloading {fmt}")
+    try:
+        main_path = job.download(fmt=fmt, dest=dest)
+    except (RigydError, OSError) as exc:
+        status.fail(str(exc))
+        raise
+    status.done(f"saved {fmt} package")
     if as_json:
         files = sorted(
             os.path.relpath(os.path.join(d, f), dest)
@@ -75,10 +82,22 @@ def _download(job: Job, fmt: str, output_base: str, as_json: bool) -> int:
     return 0
 
 
-def _run_and_download(args, job: Job) -> int:
-    _err(f"Job {job.id} created.")
-    job.wait(on_progress=_progress)
-    _err("Downloading result...")
+def _submit_and_run(args, label: str, client: RigydClient, create_fn) -> int:
+    """One status line across submit -> queue -> pipeline -> done, then download."""
+    status = tui.StatusLine().start(label)
+    try:
+        job = Job(client, create_fn())
+        if not job.id:
+            raise RigydError(f"Unexpected response: {job._data}")
+        status.update("queued")
+        _watch(status, job)
+    except RigydError as exc:
+        status.fail(str(exc))
+        return 1
+    except KeyboardInterrupt:
+        status.fail("interrupted")
+        raise
+    status.done(f"completed - job {job.id}")
     return _download(job, _resolve_export(args.export), args.output, args.json)
 
 
@@ -95,7 +114,7 @@ def cmd_login(args) -> int:
     path = config.save(api_key=key.strip(),
                        base_url=args.base_url if args.base_url else None)
     user = (me.get("user") or {}).get("email") or "unknown"
-    _err(f"Logged in as {user}. Key saved to {path}")
+    _err(tui.ok_line(f"logged in as {user} - key saved to {path}"))
     return 0
 
 
@@ -106,9 +125,11 @@ def cmd_whoami(args) -> int:
         return 0
     user = data.get("user") or {}
     sub = data.get("subscription") or {}
-    print(f"{user.get('email') or user.get('username') or 'unknown'}")
-    print(f"plan: {((sub.get('plan') or {}).get('name')) or sub.get('status')}"
-          f" | credits: {sub.get('credits_remaining')}")
+    out = sys.stdout
+    print(f"{tui.glyph('+', stream=out)} "
+          f"{tui.lime(user.get('email') or user.get('username') or 'unknown', stream=out)}")
+    print(f"    plan: {((sub.get('plan') or {}).get('name')) or sub.get('status')}"
+          f"  |  credits: {tui.lime(str(sub.get('credits_remaining')), stream=out)}")
     return 0
 
 
@@ -117,40 +138,42 @@ def cmd_pricing(args) -> int:
     if args.json:
         print(json.dumps(data, indent=2))
         return 0
+    out = sys.stdout
     for job_type, cost in (data.get("pricing") or data or {}).items():
-        print(f"{job_type:24} {cost} credit(s)")
+        print(f"{tui.glyph('+', stream=out)} {job_type:24} "
+              f"{tui.lime(str(cost), stream=out)} credit(s)")
     return 0
 
 
 def cmd_generate(args) -> int:
     client = _client(args)
     if bool(args.text) == bool(args.image):
-        _err("Provide either --text or --image (1 or 4 times), not both/neither.")
+        _err(tui.err_line("Provide either --text or --image (1 or 4 times), not both/neither."))
         return 2
     if args.text:
-        _err(f"Generating from prompt: {args.text!r}")
-        data = client.generate_from_prompt(args.text)
+        label = f"generating {args.text[:40]!r}"
+        create_fn = lambda: client.generate_from_prompt(args.text)  # noqa: E731
     else:
         if len(args.image) not in (1, 4):
-            _err("Provide exactly 1 image, or 4 (front, right, back, left).")
+            _err(tui.err_line("Provide exactly 1 image, or 4 (front, right, back, left)."))
             return 2
         for p in args.image:
             if not os.path.isfile(p):
-                _err(f"Image not found: {p}")
+                _err(tui.err_line(f"Image not found: {p}"))
                 return 2
-        _err(f"Generating from {len(args.image)} image(s)")
-        data = client.generate_from_images(args.image)
-    return _run_and_download(args, Job(client, data))
+        label = f"generating from {len(args.image)} image(s)"
+        create_fn = lambda: client.generate_from_images(args.image)  # noqa: E731
+    return _submit_and_run(args, label, client, create_fn)
 
 
 def cmd_convert(args) -> int:
     if not os.path.isfile(args.file):
-        _err(f"File not found: {args.file}")
+        _err(tui.err_line(f"File not found: {args.file}"))
         return 2
     client = _client(args)
-    _err(f"Uploading {os.path.basename(args.file)}")
-    data = client.create_from_file(args.file, args.tris)
-    return _run_and_download(args, Job(client, data))
+    return _submit_and_run(
+        args, f"converting {os.path.basename(args.file)}", client,
+        lambda: client.create_from_file(args.file, args.tris))
 
 
 def cmd_jobs_list(args) -> int:
@@ -183,16 +206,29 @@ def cmd_jobs_get(args) -> int:
 
 
 def cmd_download(args) -> int:
-    job = Job(_client(args), {"id": args.job_id})
+    job = Job(_client(args), {"id": args.job_id}).refresh()
+    if not job.done:
+        status = tui.StatusLine().start(f"waiting for job {job.id}")
+        try:
+            _watch(status, job)
+        except RigydError as exc:
+            status.fail(str(exc))
+            return 1
+        status.done(f"completed - job {job.id}")
     return _download(job, _resolve_export(args.export), args.output, args.json)
 
 
 def cmd_simulate(args) -> int:
     client = _client(args)
-    data = client.simulate(args.job_id, scene=args.scene)
-    sim = Job(client, data)
-    _err(f"Simulation job {sim.id} created (source {args.job_id}).")
-    sim.wait(on_progress=_progress)
+    status = tui.StatusLine().start(f"simulating job {args.job_id}"
+                                    + (f" ({args.scene})" if args.scene else ""))
+    try:
+        sim = Job(client, client.simulate(args.job_id, scene=args.scene))
+        _watch(status, sim)
+    except RigydError as exc:
+        status.fail(str(exc))
+        return 1
+    status.done(f"simulation completed - job {sim.id}")
     final = client.get_job(sim.id)
     if args.json:
         print(json.dumps(final, indent=2))
@@ -285,10 +321,10 @@ def main(argv: Optional[list] = None) -> int:
     try:
         return args.fn(args)
     except RigydError as exc:
-        _err(f"error: {exc}")
+        _err(tui.err_line(f"error: {exc}"))
         return 1
     except KeyboardInterrupt:
-        _err("interrupted")
+        _err(tui.err_line("interrupted"))
         return 130
 
 
