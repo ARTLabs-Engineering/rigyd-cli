@@ -75,6 +75,42 @@ def _elapsed(since: float) -> str:
     return f"{total // 60}m{total % 60:02d}s" if total >= 60 else f"{total}s"
 
 
+# -- banner -------------------------------------------------------------------
+
+_CROSSHAIR = [
+    "  ██  ",
+    "  ██  ",
+    "██████",
+    "  ██  ",
+    "  ██  ",
+]
+
+_WORDMARK = [
+    "██████  ██  ██████  ██  ██  █████ ",
+    "██  ██  ██  ██      ██  ██  ██  ██",
+    "██████  ██  ██ ███   ████   ██  ██",
+    "██ ██   ██  ██  ██    ██    ██  ██",
+    "██  ██  ██  ██████    ██    █████ ",
+]
+
+
+def banner(stream=None, tagline: str = "") -> str:
+    """The Rigyd logo as terminal art: lime crosshair + blocky wordmark,
+    framed by the logo's dim corner registration marks."""
+    stream = stream if stream is not None else sys.stdout
+    rows = [
+        "  " + lime(c, stream=stream) + "  " + style(w, _BOLD, stream=stream)
+        for c, w in zip(_CROSSHAIR, _WORDMARK)
+    ]
+    width = 2 + len(_CROSSHAIR[0]) + 2 + len(_WORDMARK[0]) + 2
+    top = dim("▛" + " " * width + "▜", stream=stream)
+    bottom = dim("▙" + " " * width + "▟", stream=stream)
+    out = [top] + [" " + r for r in rows] + [bottom]
+    if tagline:
+        out.append(" " + dim(tagline, stream=stream))
+    return "\n".join(out) + "\n"
+
+
 # -- status line ------------------------------------------------------------
 
 _FRAMES = ["+", "+", "×", "×"]  # crosshair rotating 45 degrees

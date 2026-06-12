@@ -242,6 +242,14 @@ def cmd_simulate(args) -> int:
 
 # -- parser -----------------------------------------------------------------
 
+class _BrandParser(argparse.ArgumentParser):
+    """Top-level parser whose help page opens with the Rigyd banner."""
+
+    def format_help(self) -> str:
+        tagline = f"SimReady simulation assets from anything  ·  v{__version__}  ·  rigyd.com"
+        return tui.banner(sys.stdout, tagline=tagline) + "\n" + super().format_help()
+
+
 def _add_common(p: argparse.ArgumentParser, export: bool = False,
                 json_flag: bool = True) -> None:
     p.add_argument("--api-key", help="override the stored/env API key")
@@ -257,12 +265,14 @@ def _add_common(p: argparse.ArgumentParser, export: bool = False,
 
 
 def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(
+    parser = _BrandParser(
         prog="rigyd",
         description="Convert 3D models, text, or images into SimReady simulation assets.",
     )
     parser.add_argument("--version", action="version", version=f"rigyd {__version__}")
-    sub = parser.add_subparsers(dest="command", required=True)
+    # Subcommand help pages stay banner-free (parser_class would inherit ours).
+    sub = parser.add_subparsers(dest="command", required=True,
+                                parser_class=argparse.ArgumentParser)
 
     p = sub.add_parser("login", help="store your API key (validates it first)")
     _add_common(p, json_flag=False)
@@ -317,7 +327,11 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def main(argv: Optional[list] = None) -> int:
-    args = build_parser().parse_args(argv)
+    parser = build_parser()
+    if not (argv if argv is not None else sys.argv[1:]):
+        parser.print_help()  # bare `rigyd` -> branded help, not a usage error
+        return 0
+    args = parser.parse_args(argv)
     try:
         return args.fn(args)
     except RigydError as exc:
