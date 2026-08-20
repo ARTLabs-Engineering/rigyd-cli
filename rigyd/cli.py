@@ -145,27 +145,6 @@ def cmd_pricing(args) -> int:
     return 0
 
 
-def cmd_generate(args) -> int:
-    client = _client(args)
-    if bool(args.text) == bool(args.image):
-        _err(tui.err_line("Provide either --text or --image (1 or 4 times), not both/neither."))
-        return 2
-    if args.text:
-        label = f"generating {args.text[:40]!r}"
-        create_fn = lambda: client.generate_from_prompt(args.text)  # noqa: E731
-    else:
-        if len(args.image) not in (1, 4):
-            _err(tui.err_line("Provide exactly 1 image, or 4 (front, right, back, left)."))
-            return 2
-        for p in args.image:
-            if not os.path.isfile(p):
-                _err(tui.err_line(f"Image not found: {p}"))
-                return 2
-        label = f"generating from {len(args.image)} image(s)"
-        create_fn = lambda: client.generate_from_images(args.image)  # noqa: E731
-    return _submit_and_run(args, label, client, create_fn)
-
-
 def cmd_convert(args) -> int:
     if not os.path.isfile(args.file):
         _err(tui.err_line(f"File not found: {args.file}"))
@@ -256,7 +235,7 @@ class _BrandParser(_HelpfulParser):
     """Top-level parser whose help page opens with the Rigyd banner."""
 
     def format_help(self) -> str:
-        tagline = f"SimReady simulation assets from anything  ·  v{__version__}  ·  rigyd.com"
+        tagline = f"SimReady simulation assets from 3D models  ·  v{__version__}  ·  rigyd.com"
         return tui.banner(sys.stdout, tagline=tagline) + "\n" + super().format_help()
 
 
@@ -277,7 +256,7 @@ def _add_common(p: argparse.ArgumentParser, export: bool = False,
 def build_parser() -> argparse.ArgumentParser:
     parser = _BrandParser(
         prog="rigyd",
-        description="Convert 3D models, text, or images into SimReady simulation assets.",
+        description="Convert 3D models into SimReady simulation assets.",
     )
     parser.add_argument("--version", action="version", version=f"rigyd {__version__}")
     # Subcommands: help-on-error, but banner-free (parser_class would inherit
@@ -296,13 +275,6 @@ def build_parser() -> argparse.ArgumentParser:
     p = sub.add_parser("pricing", help="per-conversion-type credit costs")
     _add_common(p)
     p.set_defaults(fn=cmd_pricing)
-
-    p = sub.add_parser("generate", help="text or image(s) -> SimReady asset")
-    p.add_argument("--text", metavar="PROMPT", help="text prompt (2 credits)")
-    p.add_argument("--image", action="append", metavar="PATH",
-                   help="input image; pass once, or 4x for multi-view (3 credits)")
-    _add_common(p, export=True)
-    p.set_defaults(fn=cmd_generate)
 
     p = sub.add_parser("convert", help="3D file -> SimReady asset (1 credit)")
     p.add_argument("file", help=".glb/.gltf/.fbx/.obj/.stl/.ply/.usd*")

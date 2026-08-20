@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-"""Generate a SimReady MuJoCo asset from a prompt and open it in the viewer.
+"""Convert a 3D model to a SimReady MuJoCo asset and open it in the viewer.
 
     pip install "rigyd[mujoco]"
     rigyd login                       # or: export RIGYD_API_KEY=rgyd_live_xxx
-    python examples/quickstart.py "a wooden dining chair"
+    python examples/quickstart.py chair.glb
 """
 
 import sys
@@ -15,12 +15,12 @@ import rigyd
 
 
 def main():
-    prompt = sys.argv[1] if len(sys.argv) > 1 else "a wooden dining chair"
+    source = sys.argv[1] if len(sys.argv) > 1 else "chair.glb"
     rigyd.configure()
 
-    print(f"Converting: {prompt!r}")
+    print(f"Converting: {source!r}")
     model = rigyd.load_model(
-        prompt=prompt,
+        file=source,
         on_progress=lambda j: print(f"  {j.status} - {j.stage} - {j.progress}%"),
     )
     print(f"Loaded: {model.ngeom} geoms, {model.nbody} bodies")

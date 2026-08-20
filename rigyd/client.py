@@ -129,18 +129,6 @@ class RigydClient:
             fields, [("file", os.path.basename(file_path), data, _mime_for(file_path))])
         return self._request("POST", "/conversions", body=body, content_type=ctype).get("data", {})
 
-    def generate_from_prompt(self, prompt: str) -> Dict[str, Any]:
-        return self._post_json("/conversions/generate", {"prompt": prompt}).get("data", {})
-
-    def generate_from_images(self, image_paths: List[str]) -> Dict[str, Any]:
-        files = []
-        for p in image_paths:
-            with open(p, "rb") as fh:
-                files.append(("images", os.path.basename(p), fh.read(), _mime_for(p)))
-        body, ctype = _encode_multipart({}, files)
-        return self._request("POST", "/conversions/generate",
-                             body=body, content_type=ctype).get("data", {})
-
     def get_job(self, job_id: str) -> Dict[str, Any]:
         return self._request("GET", f"/conversions/{job_id}").get("data", {})
 

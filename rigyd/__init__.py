@@ -1,23 +1,22 @@
-"""Rigyd SDK + CLI — convert 3D / text / images into SimReady simulation assets.
+"""Rigyd SDK + CLI — convert 3D models into SimReady simulation assets.
 
     import rigyd
     rigyd.configure(api_key="rgyd_live_...")          # or `rigyd login` / RIGYD_API_KEY
 
-    job = rigyd.convert(prompt="a wooden chair")      # or file= / images=[...]
+    job = rigyd.convert(file="chair.glb")
     job.wait(on_progress=lambda j: print(j.status, j.progress))
     xml = job.download(fmt="mjcf")                    # or "usd" / "all"
 
-    model = rigyd.load_model(prompt="a wooden chair") # -> mujoco.MjModel (needs rigyd[mujoco])
+    model = rigyd.load_model(file="chair.glb")        # -> mujoco.MjModel (needs rigyd[mujoco])
 
 Command line (installed as `rigyd`):
     rigyd login
-    rigyd generate --text "wooden chair" --export isaac -o ./assets
     rigyd convert chair.glb --tris 50000 --export all
 """
 
 from __future__ import annotations
 
-from typing import Callable, List, Optional
+from typing import Callable, Optional
 
 from . import config as _config
 from ._version import __version__
@@ -25,7 +24,7 @@ from .client import DEFAULT_CLIENT_TAG, RigydClient
 from .errors import RigydError
 from .job import Job
 
-__all__ = ["configure", "convert", "generate", "load_model", "account",
+__all__ = ["configure", "convert", "load_model", "account",
            "Job", "RigydError", "RigydClient", "__version__"]
 
 _DEFAULT = {"client": None}
@@ -54,38 +53,20 @@ def _client() -> RigydClient:
     return client
 
 
-def convert(*, file: Optional[str] = None, prompt: Optional[str] = None,
-            images: Optional[List[str]] = None,
+def convert(*, file: str,
             target_triangle_count: Optional[int] = None) -> Job:
-    """Start a conversion and return a Job. Provide exactly one input."""
+    """Start a 3D-file conversion and return a Job."""
     client = _client()
-    given = [name for name, val in
-             (("file", file), ("prompt", prompt), ("images", images)) if val]
-    if len(given) != 1:
-        raise RigydError("Provide exactly one of file=, prompt=, or images=.")
-    if file:
-        data = client.create_from_file(file, target_triangle_count)
-    elif prompt:
-        data = client.generate_from_prompt(prompt)
-    else:
-        if len(images) not in (1, 4):
-            raise RigydError("Provide exactly 1 image, or 4 (front, right, back, left).")
-        data = client.generate_from_images(images)
+    data = client.create_from_file(file, target_triangle_count)
     return Job(client, data)
 
 
-# `generate` reads more naturally for text/image inputs; same call.
-generate = convert
-
-
-def load_model(*, file: Optional[str] = None, prompt: Optional[str] = None,
-               images: Optional[List[str]] = None,
+def load_model(*, file: str,
                target_triangle_count: Optional[int] = None,
                on_progress: Optional[Callable[[Job], None]] = None,
                dest: Optional[str] = None):
     """Convert, wait, and return a ready ``mujoco.MjModel`` (needs rigyd[mujoco])."""
-    job = convert(file=file, prompt=prompt, images=images,
-                  target_triangle_count=target_triangle_count)
+    job = convert(file=file, target_triangle_count=target_triangle_count)
     job.wait(on_progress=on_progress)
     return job.load(dest=dest)
 

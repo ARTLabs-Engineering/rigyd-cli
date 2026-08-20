@@ -1,7 +1,7 @@
 [project]
 name = "rigyd"
 version = "1.0.1"
-description = "Convert any 3D model, text prompt, or image into a physics-enabled SimReady simulation asset (USD / MJCF) with Rigyd — SDK + CLI."
+description = "Convert 3D models into physics-enabled SimReady simulation assets (USD / MJCF) with Rigyd — SDK + CLI."
 authors = [{ name = "Rigyd", email = "hello@rigyd.com" }]
 readme = "README.md"
 license = { text = "MIT" }

@@ -1,7 +1,7 @@
 # rigyd
 
-SDK + CLI for [Rigyd](https://rigyd.com): convert any **3D model, text prompt,
-or image** into a physics-enabled **SimReady** simulation asset — USD for
+SDK + CLI for [Rigyd](https://rigyd.com): convert a **3D model** into a
+physics-enabled **SimReady** simulation asset — USD for
 NVIDIA Isaac Sim, MJCF for MuJoCo — from your terminal or your Python code.
 
 Zero dependencies. `pip install rigyd` and go.
@@ -12,8 +12,6 @@ Zero dependencies. `pip install rigyd` and go.
 pip install rigyd
 rigyd login                                   # stores your rgyd_live_... key
 
-rigyd generate --text "wooden chair" --export isaac -o ./assets
-rigyd generate --image front.png --image right.png --image back.png --image left.png
 rigyd convert chair.glb --tris 50000 --export all
 
 rigyd jobs list
@@ -31,8 +29,6 @@ rigyd whoami                                  # user + credit balance
 
 | Input | Command | Cost |
 |------|---------|------|
-| Text prompt | `rigyd generate --text "..."` | 2 credits |
-| 1 or 4 images | `rigyd generate --image ...` | 3 credits |
 | 3D file (`.glb/.gltf/.fbx/.obj/.stl/.ply/.usd*`) | `rigyd convert FILE` | 1 credit |
 
 ## Python SDK
@@ -41,7 +37,7 @@ rigyd whoami                                  # user + credit balance
 import rigyd
 rigyd.configure()                                  # key from login/env
 
-job = rigyd.convert(prompt="a wooden dining chair")
+job = rigyd.convert(file="chair.glb")
 job.wait(on_progress=lambda j: print(j.status, j.stage, j.progress))
 xml_path = job.download(fmt="mjcf")                # or "usd" / "all"
 print(rigyd.account())                             # user + credit balance
@@ -54,7 +50,7 @@ pip install "rigyd[mujoco]"
 ```
 
 ```python
-model = rigyd.load_model(prompt="a wooden chair")  # -> mujoco.MjModel, ready to mj_step
+model = rigyd.load_model(file="chair.glb")  # -> mujoco.MjModel, ready to mj_step
 ```
 
 ## Loading into a live simulator
