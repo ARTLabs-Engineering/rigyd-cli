@@ -117,6 +117,53 @@ class RigydClient:
         """Full response: {data: [...jobs], meta: {page, pageSize, pageCount, total}}."""
         return self._request("GET", f"/conversions?page={page}&pageSize={page_size}")
 
+    def list_compositions(self, page: int = 1, page_size: int = 25) -> Dict[str, Any]:
+        """Full response: {data: [...composition workflows]}."""
+        return self._request("GET", f"/compositions?page={page}&pageSize={page_size}")
+
+    def create_composition(self, prompt: str, robot_task: str, *,
+                           images: Optional[List[str]] = None,
+                           asset_class: str = "auto",
+                           auto_submit: bool = False,
+                           negative_prompt: Optional[str] = None,
+                           physical_context: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+        payload: Dict[str, Any] = {
+            "prompt": prompt,
+            "robot_task": robot_task,
+            "asset_class": asset_class,
+            "auto_submit": auto_submit,
+        }
+        if negative_prompt:
+            payload["negative_prompt"] = negative_prompt
+        if physical_context:
+            payload["physical_context"] = physical_context
+
+        if not images:
+            return self._post_json("/compositions/generate", payload).get("data", {})
+
+        fields = {}
+        for key, value in payload.items():
+            if key == "physical_context":
+                fields[key] = json.dumps(value)
+            elif isinstance(value, bool):
+                fields[key] = str(value).lower()
+            else:
+                fields[key] = str(value)
+        files = []
+        for image_path in images:
+            with open(image_path, "rb") as fh:
+                files.append(("images[]", os.path.basename(image_path), fh.read(),
+                              _mime_for(image_path)))
+        body, content_type = _encode_multipart(fields, files)
+        return self._request("POST", "/compositions/generate", body=body,
+                             content_type=content_type).get("data", {})
+
+    def get_composition(self, composition_id: str) -> Dict[str, Any]:
+        return self._request("GET", f"/compositions/{composition_id}").get("data", {})
+
+    def submit_composition(self, composition_id: str) -> Dict[str, Any]:
+        return self._post_json(f"/compositions/{composition_id}/submit", {}).get("data", {})
+
     def create_from_file(self, file_path: str,
                          target_triangle_count: Optional[int] = None) -> Dict[str, Any]:
         with open(file_path, "rb") as fh:

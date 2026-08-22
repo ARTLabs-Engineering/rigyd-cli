@@ -1,4 +1,4 @@
-"""Rigyd SDK + CLI — convert 3D models into SimReady simulation assets.
+"""Rigyd SDK + CLI — compose or convert SimReady simulation assets.
 
     import rigyd
     rigyd.configure(api_key="rgyd_live_...")          # or `rigyd login` / RIGYD_API_KEY
@@ -8,6 +8,15 @@
     xml = job.download(fmt="mjcf")                    # or "usd" / "all"
 
     model = rigyd.load_model(file="chair.glb")        # -> mujoco.MjModel (needs rigyd[mujoco])
+
+    composition = rigyd.compose(
+        prompt="a compact desktop stapler",
+        robot_task="press the upper arm to staple paper",
+        asset_class="articulated",
+        auto_submit=True,
+    )
+    composition.wait()
+    job = composition.conversion_job()
 
 Command line (installed as `rigyd`):
     rigyd login
@@ -21,11 +30,12 @@ from typing import Callable, Optional
 from . import config as _config
 from ._version import __version__
 from .client import DEFAULT_CLIENT_TAG, RigydClient
+from .composition import Composition
 from .errors import RigydError
 from .job import Job
 
-__all__ = ["configure", "convert", "load_model", "account",
-           "Job", "RigydError", "RigydClient", "__version__"]
+__all__ = ["configure", "compose", "convert", "load_model", "account",
+           "Composition", "Job", "RigydError", "RigydClient", "__version__"]
 
 _DEFAULT = {"client": None}
 
@@ -59,6 +69,30 @@ def convert(*, file: str,
     client = _client()
     data = client.create_from_file(file, target_triangle_count)
     return Job(client, data)
+
+
+def compose(*, prompt: str, robot_task: str,
+            images: Optional[list] = None,
+            asset_class: str = "auto",
+            auto_submit: bool = False,
+            negative_prompt: Optional[str] = None,
+            physical_context: Optional[dict] = None) -> Composition:
+    """Start a SimReady Asset Composer workflow and return a Composition."""
+    if images and len(images) not in (1, 4):
+        raise RigydError("Provide exactly 1 image, or 4 (front, right, back, left).")
+    if asset_class not in ("auto", "rigid", "articulated"):
+        raise RigydError("asset_class must be auto, rigid, or articulated")
+    client = _client()
+    data = client.create_composition(
+        prompt,
+        robot_task,
+        images=images,
+        asset_class=asset_class,
+        auto_submit=auto_submit,
+        negative_prompt=negative_prompt,
+        physical_context=physical_context,
+    )
+    return Composition(client, data)
 
 
 def load_model(*, file: str,

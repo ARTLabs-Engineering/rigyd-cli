@@ -1,13 +1,13 @@
 [project]
 name = "rigyd"
-version = "1.0.1"
-description = "Convert 3D models into physics-enabled SimReady simulation assets (USD / MJCF) with Rigyd — SDK + CLI."
+version = "1.1.0"
+description = "Compose or convert physics-enabled SimReady simulation assets (USD / MJCF) with Rigyd — SDK + CLI."
 authors = [{ name = "Rigyd", email = "hello@rigyd.com" }]
 readme = "README.md"
 license = { text = "MIT" }
 requires-python = ">=3.9"
 dependencies = []
-keywords = ["rigyd", "simready", "usd", "mjcf", "mujoco", "isaac-sim", "robotics", "simulation", "cli"]
+keywords = ["rigyd", "simready", "usd", "mjcf", "mujoco", "isaac-sim", "robotics", "simulation", "asset-generation", "cli"]
 
 [project.optional-dependencies]
 mujoco = ["mujoco>=3.0"]
